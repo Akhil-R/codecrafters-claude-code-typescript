@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import { readFile } from "node:fs/promises";
 
 const readTool: OpenAI.Chat.Completions.ChatCompletionTool = {
   "type": "function",
@@ -57,7 +56,7 @@ async function main() {
 
     if (toolCall.function.name === "Read") {
       const args = JSON.parse(toolCall.function.arguments);
-      const contents = await readFile(args.file_path, "utf8");
+      const contents = await Bun.file(args.file_path).text();
 
       console.log(contents);
     }
