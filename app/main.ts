@@ -38,7 +38,7 @@ async function main() {
 
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "user", content: prompt },
-  ]
+  ];
 
   while (true) {
     const response = await client.chat.completions.create({
