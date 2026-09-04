@@ -18,6 +18,28 @@ const readTool: OpenAI.Chat.Completions.ChatCompletionTool = {
   }
 };
 
+const writeTool: OpenAI.Chat.Completions.ChatCompletionTool = {
+  "type": "function",
+  "function": {
+    "name": "Write",
+    "description": "Write content to a file",
+    "parameters": {
+      "type": "object",
+      "required": ["file_path", "content"],
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "description": "The path of the file to write to"
+        },
+        "content": {
+          "type": "string",
+          "description": "The content to write to the file"
+        }
+      }
+    }
+  }
+};
+
 async function main() {
   const [, , flag, prompt] = process.argv;
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -44,7 +66,7 @@ async function main() {
     const response = await client.chat.completions.create({
       model: "anthropic/claude-haiku-4.5",
       messages: messages,
-      tools: [readTool],
+      tools: [readTool, writeTool],
     });
 
     if (!response.choices || response.choices.length === 0) {
@@ -70,6 +92,18 @@ async function main() {
           role: "tool",
           tool_call_id: toolCall.id,
           content: result,
+        });
+      }
+      else if(toolCall.function.name === "Write"){
+        const args = JSON.parse(toolCall.function.arguments);
+
+        // Write or overwrite content to the target file path
+        await Bun.write(args.file_path, args.content);
+
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: "File written successfully",
         });
       }
     }
