@@ -40,6 +40,23 @@ const writeTool: OpenAI.Chat.Completions.ChatCompletionTool = {
   }
 };
 
+const toolDefinitions = [readTool, writeTool];
+
+async function executeTool(toolCall: OpenAI.Chat.Completions.ChatCompletionMessageToolCall) {
+  const args = JSON.parse(toolCall.function.arguments);
+
+  if (toolCall.function.name === "Read") {
+    return await Bun.file(args.file_path).text();
+  }
+
+  if (toolCall.function.name === "Write") {
+    await Bun.write(args.file_path, args.content);
+    return "File written successfully";
+  }
+
+  throw new Error(`Unknown tool: ${toolCall.function.name}`);
+}
+
 async function main() {
   const [, , flag, prompt] = process.argv;
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -66,7 +83,7 @@ async function main() {
     const response = await client.chat.completions.create({
       model: "anthropic/claude-haiku-4.5",
       messages: messages,
-      tools: [readTool, writeTool],
+      tools: toolDefinitions,
     });
 
     if (!response.choices || response.choices.length === 0) {
@@ -83,29 +100,14 @@ async function main() {
     }
 
     for (const toolCall of message.tool_calls) {
-      if (toolCall.function.name === "Read") {
-        const args = JSON.parse(toolCall.function.arguments);
+      const result = await executeTool(toolCall);
 
-        const result = await Bun.file(args.file_path).text();
-
-        messages.push({
+      messages.push({
           role: "tool",
           tool_call_id: toolCall.id,
           content: result,
         });
-      }
-      else if(toolCall.function.name === "Write"){
-        const args = JSON.parse(toolCall.function.arguments);
 
-        // Write or overwrite content to the target file path
-        await Bun.write(args.file_path, args.content);
-
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: "File written successfully",
-        });
-      }
     }
 
   }
