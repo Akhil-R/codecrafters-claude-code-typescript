@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { exec } from "child_process";
 
 const readTool: OpenAI.Chat.Completions.ChatCompletionTool = {
   "type": "function",
@@ -40,7 +41,25 @@ const writeTool: OpenAI.Chat.Completions.ChatCompletionTool = {
   }
 };
 
-const toolDefinitions = [readTool, writeTool];
+const bashTool: OpenAI.Chat.Completions.ChatCompletionTool = {
+  "type": "function",
+  "function": {
+    "name": "Bash",
+    "description": "Execute a shell command",
+    "parameters": {
+      "type": "object",
+      "required": ["command"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The command to execute"
+        }
+      }
+    }
+  }
+};
+
+const toolDefinitions = [readTool, writeTool, bashTool];
 
 async function executeTool(toolCall: OpenAI.Chat.Completions.ChatCompletionMessageToolCall) {
   const args = JSON.parse(toolCall.function.arguments);
@@ -52,6 +71,17 @@ async function executeTool(toolCall: OpenAI.Chat.Completions.ChatCompletionMessa
   if (toolCall.function.name === "Write") {
     await Bun.write(args.file_path, args.content);
     return "File written successfully";
+  }
+
+  if (toolCall.function.name === "Bash") {
+    return new Promise((resolve) => {
+      exec(args.command, (error, stdout, stderr) => {
+        resolve(JSON.stringify({
+          stdout,
+          stderr,
+        }));
+      });
+    });
   }
 
   throw new Error(`Unknown tool: ${toolCall.function.name}`);
