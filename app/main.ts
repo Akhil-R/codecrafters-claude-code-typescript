@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import { exec } from "child_process";
 
 const readTool: OpenAI.Chat.Completions.ChatCompletionTool = {
   "type": "function",
@@ -74,15 +73,15 @@ async function executeTool(toolCall: OpenAI.Chat.Completions.ChatCompletionMessa
   }
 
   if (toolCall.function.name === "Bash") {
-    return new Promise((resolve) => {
-      exec(args.command, (error, stdout, stderr) => {
-        resolve(JSON.stringify({
-          stdout,
-          stderr,
-        }));
-      });
-    });
+    const proc = Bun.spawn(["sh", "-c", args.command]);
+
+    const stdout = await new Response(proc.stdout).text();
+    const stderr = await new Response(proc.stderr).text();
+
+    return JSON.stringify({ stdout, stderr });
   }
+
+
 
   throw new Error(`Unknown tool: ${toolCall.function.name}`);
 }
